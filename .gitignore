@@ -1,3 +1,7 @@
+# in/out files
+*.h264
+out/*.jpg
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
