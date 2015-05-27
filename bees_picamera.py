@@ -35,9 +35,9 @@ from munkresPi import linear_assignment # local import
 
 # statistical background model, build a model from previous frames
 class BGmodel(object):
-    def __init__(self, size):
+    def __init__(self, size, shape=(640, 480)):
         self.size = size #number of frame used to compute a model
-        self.hist = np.zeros((self.size,480,640))
+        self.hist = np.zeros((self.size, shape[1], shape[0]))
         self.model = None
         self.cpt = 0
         self.ready = False
@@ -146,28 +146,30 @@ class Hive(object):
 #-------------------------------------------------------------------------------
 
 #------------   DATASET dependent
-camera = picamera.PiCamera()
-camera.resolution = (640, 480)
-camera.framerate = 30
-#camera.start_recording(MyOutput(socket), format='h264')
-#camera.wait_recording(4)
-#camera.stop_recording()
+# scale of the inpute image, must be a divisor of 640 and 480 (see bellow)
+SCALE = 1 # 1 => (640,480), 2 => (320, 240), 4 => (160, 120)
 
+# number of frames used to compute a statistical model of the background, 
+# more is better but slower
+HISTSIZE = 30
 
-# input video file
-cap = cv2.VideoCapture('bees1.h264')
 # position of the hive entrance rectangle with top left corner (X,Y) and 
 # size (width, height)
-hive = Hive(53,412,582,62)
+hive = Hive(53./SCALE,412./SCALE,582./SCALE,62./SCALE)
+
+#----------  CAMERA 
+camera = picamera.PiCamera()
+camera.resolution = (640/SCALE, 480/SCALE)
+camera.framerate = 30
 
 
 #------------   GENERIC parameters
 # morphological structuring element to clean the image
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5))
 # background model with history size
-bgm = BGmodel(3)
-# maximum "jump" a bee can make between two consecutive detections
-THRESHBEE = 60
+bgm = BGmodel(HISTSIZE, camera.resolution)
+# maximum "jump" a bee can make between two consecutive detections in pixels
+THRESHBEE = 60/SCALE
 
 
 #------------   BLOB detector parametrization
@@ -182,8 +184,8 @@ params.filterByColor = False;
  
 # Filter by Area.
 params.filterByArea = True
-params.minArea = 10
-params.maxArea = 400
+params.minArea = 10/(SCALE*SCALE)
+params.maxArea = 400/(SCALE*SCALE)
  
 # Filter by Circularity
 params.filterByCircularity = False
@@ -224,19 +226,10 @@ try :
         camera.capture(stream, format='jpeg', use_video_port=True)
         # Construct a numpy array from the stream
         data = np.fromstring(stream.getvalue(), dtype=np.uint8)
-        # "Decode" the image from the array, preserving colour
+        # "Decode" the image from the array, preserving colour as BGR
         frame = cv2.imdecode(data, 1)
-        # OpenCV returns an array with data in BGR order. If you want RGB instead
-        # use the following...
-        #frame = frame[:, :, ::-1]
-        # downsample to 640x480
-        #frame = cv2.resize(frame, (640, 480), 0, 0, cv2.INTER_CUBIC);
-        # convert to grayscale and apply slight blur
-        #print frame.shape
-        #print frame.dtype
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray,(5,5),0).astype(np.int32)
-        
         
         # update the model and apply it to the current frame
         fgmask = bgm.apply(gray)
@@ -253,7 +246,7 @@ try :
         if bgm.ready :
             keypoints = detector.detect(fgmask)
             # Draw detected blobs as red circles.
-            im_with_keypoints = np.zeros((480,640,3))#cv2.drawKeypoints(fgmask, keypoints, np.array([]), (0,0,255))
+            im_with_keypoints = np.zeros((480/SCALE,640/SCALE,3))#cv2.drawKeypoints(fgmask, keypoints, np.array([]), (0,0,255))
             if len(bees) == 0: # no bees yet, no matching to do, just add them
                 for kp in keypoints:
                     bees.append(Bee(kp.pt))
