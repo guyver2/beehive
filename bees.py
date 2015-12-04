@@ -258,7 +258,7 @@ try :
                 for i in xrange(len(freeKP)): # new keypoints
                     if freeKP[i]:
                         bees.append(Bee(keypoints[i].pt))
-                        hive.append(kp.pt)                    
+                        hive.append(keypoints[i].pt)                    
             # remove lost bees (not seen for at least 15 frames)
             tmp = []
             for b in bees:
